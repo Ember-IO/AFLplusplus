@@ -160,7 +160,7 @@ char **get_qemu_argv(u8 *own_loc, u8 **target_path_p, int argc, char **argv) {
   new_argv[argc + 3] = NULL;
 
   new_argv[2] = *target_path_p;
-  new_argv[1] = "--";
+  new_argv[1] = "-kernel";
 
   /* Now we need to actually find the QEMU binary to put in argv[0]. */
 

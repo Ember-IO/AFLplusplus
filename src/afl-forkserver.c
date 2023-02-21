@@ -86,6 +86,7 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->mem_limit = MEM_LIMIT;
   fsrv->out_file = NULL;
   fsrv->kill_signal = SIGKILL;
+  fsrv->linear_subfork = true;
 
   /* exec related stuff */
   fsrv->child_pid = -1;
@@ -96,6 +97,11 @@ void afl_fsrv_init(afl_forkserver_t *fsrv) {
   fsrv->debug = false;
   fsrv->uses_crash_exitcode = false;
   fsrv->uses_asan = false;
+  fsrv->subfork_init_run = 0;
+  fsrv->divergence_point = (u32)-1;
+  fsrv->use_subfork = 0;
+  fsrv->subfork_count = 0;
+  fsrv->subfork_offsets = NULL;
 
   fsrv->init_child_func = fsrv_exec_child;
   list_append(&fsrv_list, fsrv);
@@ -1177,7 +1183,10 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
 
   s32 res;
   u32 exec_ms;
-  u32 write_value = fsrv->last_run_timed_out;
+  u32 write_value = fsrv->last_run_timed_out & 1;
+  write_value |= (fsrv->subfork_init_run & 1) << 1;
+  write_value |= (fsrv->use_subfork & 1) << 2;
+  write_value |= (fsrv->divergence_point << 12);
 
   /* After this memset, fsrv->trace_bits[] are effectively volatile, so we
      must prevent any earlier operations from venturing into that
@@ -1229,6 +1238,23 @@ fsrv_run_result_t afl_fsrv_run_target(afl_forkserver_t *fsrv, u32 timeout,
   if (fsrv->child_pid <= 0) {
 
     if (*stop_soon_p) { return 0; }
+
+    if (fsrv->subfork_init_run) {
+       if ((res = read(fsrv->fsrv_st_fd, &fsrv->subfork_count, 4)) != 4) {
+         FATAL("Unable to get subfork count\n");
+       }
+       free(fsrv->subfork_offsets);
+       fsrv->subfork_offsets = malloc(fsrv->subfork_count * 4);
+       if(!fsrv->subfork_offsets)
+         FATAL("Unable to alloc subfork offsets (table size %d)\n",fsrv->subfork_count);
+       for(int i = 0; i < fsrv->subfork_count; i++){
+         int* offset_ptr = (fsrv->subfork_offsets) + i;
+         if ((res = read(fsrv->fsrv_st_fd, offset_ptr, 4)) != 4) {
+           FATAL("Unable to get subfork offset for subfork server %d\n", i);
+         }
+       }
+       return 0;
+    }
 
     if ((fsrv->child_pid & FS_OPT_ERROR) &&
         FS_OPT_GET_ERROR(fsrv->child_pid) == FS_ERROR_SHM_OPEN)

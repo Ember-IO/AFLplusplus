@@ -70,21 +70,21 @@ echo "[+] All checks passed!"
 
 echo "[*] Making sure qemuafl is checked out"
 
-git status 1>/dev/null 2>/dev/null
-if [ $? -eq 0 ]; then
-  echo "[*] initializing qemuafl submodule"
-  git submodule init || exit 1
-  git submodule update ./qemuafl 2>/dev/null # ignore errors
-else
-  echo "[*] cloning qemuafl"
-  test -d qemuafl || {
-    CNT=1
-    while [ '!' -d qemuafl -a "$CNT" -lt 4 ]; do
-      echo "Trying to clone qemuafl (attempt $CNT/3)"
-      git clone --depth 1 https://github.com/AFLplusplus/qemuafl
-      CNT=`expr "$CNT" + 1`
-    done
-  }
+#git status 1>/dev/null 2>/dev/null
+#if [ $? -eq 0 ]; then
+#  echo "[*] initializing qemuafl submodule"
+#  git submodule init || exit 1
+#  git submodule update ./qemuafl 2>/dev/null # ignore errors
+#else
+#  echo "[*] cloning qemuafl"
+#  test -d qemuafl || {
+#    CNT=1
+#    while [ '!' -d qemuafl -a "$CNT" -lt 4 ]; do
+#      echo "Trying to clone qemuafl (attempt $CNT/3)"
+#      git clone --depth 1 https://github.com/AFLplusplus/qemuafl
+#      CNT=`expr "$CNT" + 1`
+#    done
+#  }
 fi
 
 test -d qemuafl || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
@@ -93,10 +93,10 @@ echo "[+] Got qemuafl."
 cd "qemuafl" || exit 1
 if [ -n "$NO_CHECKOUT" ]; then
   echo "[*] Skipping checkout to $QEMUAFL_VERSION"
-else
-  echo "[*] Checking out $QEMUAFL_VERSION"
-  sh -c 'git stash' 1>/dev/null 2>/dev/null
-  git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
+#else
+#  echo "[*] Checking out $QEMUAFL_VERSION"
+#  sh -c 'git stash' 1>/dev/null 2>/dev/null
+#  git checkout "$QEMUAFL_VERSION" || echo Warning: could not check out to commit $QEMUAFL_VERSION
 fi
 
 echo "[*] Making sure imported headers matches"
@@ -111,6 +111,8 @@ if [ -n "$HOST" ]; then
 else
   CROSS_PREFIX=
 fi
+
+CPU_TARGET="arm"
 
 echo "[*] Configuring QEMU for $CPU_TARGET..."
 
@@ -143,7 +145,6 @@ QEMU_CONF_FLAGS=" \
   --disable-curl \
   --disable-curses \
   --disable-dmg \
-  --disable-fdt \
   --disable-gcrypt \
   --disable-glusterfs \
   --disable-gnutls \
@@ -173,7 +174,8 @@ QEMU_CONF_FLAGS=" \
   --disable-smartcard \
   --disable-snappy \
   --disable-spice \
-  --disable-system \
+  --disable-user \
+  --enable-system \
   --disable-tools \
   --disable-tpm \
   --disable-usb-redir \
@@ -197,7 +199,7 @@ QEMU_CONF_FLAGS=" \
   --disable-xen \
   --disable-xen-pci-passthrough \
   --disable-xfsctl \
-  --target-list="${CPU_TARGET}-linux-user" \
+  --target-list="${CPU_TARGET}-softmmu" \
   --without-default-devices \
   "
 
@@ -238,7 +240,7 @@ if [ "$DEBUG" = "1" ]; then
     --enable-debug-stack-usage \
     --enable-debug-tcg \
     --enable-qom-cast-debug \
-    --enable-werror \
+    --disable-werror \
     "
 
 else
@@ -278,7 +280,7 @@ echo "[+] Build process successful!"
 
 echo "[*] Copying binary..."
 
-cp -f "build/${CPU_TARGET}-linux-user/qemu-${CPU_TARGET}" "../../afl-qemu-trace" || exit 1
+cp -f "build/${CPU_TARGET}-softmmu/qemu-system-${CPU_TARGET}" "../../afl-qemu-trace" || exit 1
 
 cd ..
 ls -l ../afl-qemu-trace || exit 1

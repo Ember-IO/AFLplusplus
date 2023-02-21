@@ -119,6 +119,13 @@ typedef struct afl_forkserver {
 
   u8 kill_signal;
 
+  u32 linear_subfork;
+  u32 divergence_point;
+  u32 subfork_init_run;
+  u32 use_subfork;
+  u32 subfork_count;
+  int * subfork_offsets;
+
 } afl_forkserver_t;
 
 typedef enum fsrv_run_result {
