@@ -85,7 +85,7 @@ echo "[*] Making sure qemuafl is checked out"
 #      CNT=`expr "$CNT" + 1`
 #    done
 #  }
-fi
+#fi
 
 test -d qemuafl || { echo "[-] Not checked out, please install git or check your internet connection." ; exit 1 ; }
 echo "[+] Got qemuafl."
